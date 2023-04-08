@@ -5,10 +5,11 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 
 #define ALIGN4(s)         (((((s) - 1) >> 2) << 2) + 4)
-#define BLOCK_DATA(b)     ((b) + 1)
-#define BLOCK_HEADER(ptr) ((struct _block *)(ptr) - 1)
+#define BLOCK_DATA(b)     ((b) + 1) //enter header, get ptr to allocated data
+#define BLOCK_HEADER(ptr) ((struct _block *)(ptr) - 1) //enter allocated data, get ptrt to block head
 
 static int atexit_registered = 0;
 static int num_mallocs       = 0;
@@ -45,10 +46,10 @@ void printStatistics( void )
   printf("max heap:\t%d\n", max_heap );
 }
 
-struct _block 
+struct _block // size = 24 bytes
 {
    size_t  size;         /* Size of the allocated _block of memory in bytes */
-   struct _block *next;  /* Pointer to the next _block of allcated memory   */
+   struct _block *next;  /* Pointer to the next _block of allocated memory   */
    bool   free;          /* Is this _block free?                            */
    char   padding[3];    /* Padding: IENTRTMzMjAgU3ByaW5nIDIwMjM            */
 };
@@ -84,19 +85,46 @@ struct _block *findFreeBlock(struct _block **last, size_t size)
    // 
    while (curr && !(curr->free && curr->size >= size)) 
    {
-      *last = curr;
+      *last = curr; //sets last equal to address held in curr
       curr  = curr->next;
    }
 #endif
 
 // \TODO Put your Best Fit code in this #ifdef block
 #if defined BEST && BEST == 0
-   /** \TODO Implement best fit here */
+   struct _block *winner = NULL;
+   int winning_remainder = INT_MAX;
+
+   while (curr && !(curr->free && curr->size >= size)) 
+   {
+      if( (curr->size - size) < winning_remainder)
+      {
+         winner = curr;
+         winning_remainder = curr->size - size;
+      }
+      curr = curr->next;
+      curr = winner;
+   }
+   //curr = winner; 
 #endif
 
 // \TODO Put your Worst Fit code in this #ifdef block
 #if defined WORST && WORST == 0
-   /** \TODO Implement worst fit here */
+   struct _block *winner = NULL;
+   int winning_remainder = INT_MIN;
+
+   while (curr && !(curr->free && curr->size >= size)) 
+   {
+      if( (curr->size - size) > winning_remainder)
+      {
+         winner = curr;
+         winning_remainder = curr->size - size;
+      }
+      curr = curr->next;
+      curr = winner;
+   }
+   //curr = winner;
+   
 #endif
 
 // \TODO Put your Next Fit code in this #ifdef block
@@ -122,7 +150,7 @@ struct _block *findFreeBlock(struct _block **last, size_t size)
 struct _block *growHeap(struct _block *last, size_t size) 
 {
    /* Request more space from OS */
-   struct _block *curr = (struct _block *)sbrk(0);
+   struct _block *curr = (struct _block *)sbrk(0); //Calling sbrk() with an increment of 0 can be used to find the current location of the program break.
    struct _block *prev = (struct _block *)sbrk(sizeof(struct _block) + size);
 
    assert(curr == prev);
