@@ -9,7 +9,7 @@
 
 #define ALIGN4(s)         (((((s) - 1) >> 2) << 2) + 4)
 #define BLOCK_DATA(b)     ((b) + 1) //enter header, get ptr to allocated data
-#define BLOCK_HEADER(ptr) ((struct _block *)(ptr) - 1) //enter allocated data, get ptrt to block head
+#define BLOCK_HEADER(ptr) ((struct _block *)(ptr) - 1) //enter allocated data, get ptr to block head
 
 static int atexit_registered = 0;
 static int num_mallocs       = 0;
@@ -105,7 +105,8 @@ struct _block *findFreeBlock(struct _block **last, size_t size)
       curr = curr->next;
       curr = winner;
    }
-   //curr = winner; 
+   //curr = winner;
+
 #endif
 
 // \TODO Put your Worst Fit code in this #ifdef block
