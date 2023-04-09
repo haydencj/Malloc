@@ -95,36 +95,50 @@ struct _block *findFreeBlock(struct _block **last, size_t size)
    struct _block *winner = NULL;
    int winning_remainder = INT_MAX;
 
-   while (curr && !(curr->free && curr->size >= size)) 
+   while (curr) 
    {
+      if(!(curr->free && curr->size >= size))
+      {
+         *last = curr;
+         curr = curr->next;
+         continue;
+      }
+
       if( (curr->size - size) < winning_remainder)
       {
          winner = curr;
          winning_remainder = curr->size - size;
       }
+      *last = curr;
       curr = curr->next;
-      curr = winner;
    }
-   //curr = winner;
+   curr = winner;
 
 #endif
 
 // \TODO Put your Worst Fit code in this #ifdef block
 #if defined WORST && WORST == 0
    struct _block *winner = NULL;
-   int winning_remainder = INT_MIN;
+   int winning_remainder = 0; //INT_MIN causes incorrect address
 
-   while (curr && !(curr->free && curr->size >= size)) 
+   while (curr) 
    {
+      if(!(curr->free && curr->size >= size))
+      {
+         *last = curr;
+         curr = curr->next;
+         continue;
+      }
+
       if( (curr->size - size) > winning_remainder)
       {
          winner = curr;
          winning_remainder = curr->size - size;
       }
+      *last = curr;
       curr = curr->next;
-      curr = winner;
    }
-   //curr = winner;
+   curr = winner;
    
 #endif
 
@@ -226,6 +240,37 @@ void *malloc(size_t size)
             don't split the block.
    */
 
+   //next>size > size then check:
+   //if next->size - size > sizeof(_block)+4 then split
+   //if next->size - size < sizeof(_block)+4 then dont split
+   
+
+   if(next != NULL && next->size > sizeof(struct _block)+4)
+   {
+      struct _block *temp = NULL;
+      struct _block *original_next = next->next;
+      size_t original_size = next->size;
+
+      //subtract requested size from original block
+      next->size = next->size - size;
+      //set original block free to false
+      next->free = false;
+      //set original block next to BLOCK_DATA + requested size
+      next->next = BLOCK_DATA(next) + size;
+
+      //starting at new split block
+      temp = next->next;
+      //new free block size should be original size of block - (requested size + header size)
+      temp->size = original_size - (size + sizeof(struct _block));
+      //set new block next = to what the original block next was
+      temp->next = original_next;
+      //set new block free to true
+      temp->free = true;
+
+      num_splits++;
+   }
+
+
    /* Could not find free _block, so grow heap */
    if (next == NULL) 
    {
@@ -241,6 +286,7 @@ void *malloc(size_t size)
    /* Mark _block as in use */
    next->free = false;
 
+   num_mallocs++;
    /* Return data address associated with _block to the user */
    return BLOCK_DATA(next);
 }
@@ -270,6 +316,18 @@ void free(void *ptr)
    /* TODO: Coalesce free _blocks.  If the next block or previous block 
             are free then combine them with this block being freed.
    */
+   struct _block *temp = heapList;
+
+   while(temp)
+   {
+      if(temp->free == true && temp->next->free == true)
+      {
+         temp->next = temp->next->next;
+      }
+      temp = temp->next;
+   }
+
+   num_frees++;
 }
 
 void *calloc( size_t nmemb, size_t size )
