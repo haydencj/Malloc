@@ -146,10 +146,10 @@ struct _block *findFreeBlock(struct _block **last, size_t size)
 
 // \TODO Put your Next Fit code in this #ifdef block
 #if defined NEXT && NEXT == 0
-   if(roving_ptr!=NULL)
-   {
+   //if(roving_ptr!=NULL)
+   //{
    curr = roving_ptr;
-   }
+   //}
 
    //While block is not free and block size is less than requested size, iterate through list.
    while (curr && curr->next != roving_ptr && (curr->free != true && curr->size < size)) 
@@ -342,8 +342,8 @@ void free(void *ptr)
    {
       if(temp->free == true && temp->next->free == true)
       {
-         //combine sizes
-         temp->size = temp->next->size + sizeof(struct _block);
+         //combine sizes. current block size + next block size + size of block header
+         temp->size = temp->size + temp->next->size + sizeof(struct _block);
          temp->next = temp->next->next;
       }
       temp = temp->next;
