@@ -22,6 +22,8 @@ static int num_blocks        = 0;
 static int num_requested     = 0;
 static int max_heap          = 0;
 
+//env LD_PRELOAD=lib/libmalloc-ff.so tests/ffnf
+
 /*
  *  \brief printStatistics
  *
@@ -56,7 +58,7 @@ struct _block // size = 24 bytes
 
 
 struct _block *heapList = NULL; /* Free list to track the _blocks available */
-
+struct _block *roving_ptr = NULL; /* Used to keep track of where we left off in next fit*/
 /*
  * \brief findFreeBlock
  *
@@ -144,7 +146,25 @@ struct _block *findFreeBlock(struct _block **last, size_t size)
 
 // \TODO Put your Next Fit code in this #ifdef block
 #if defined NEXT && NEXT == 0
-   /** \TODO Implement next fit here */
+   if(roving_ptr!=NULL)
+   {
+   curr = roving_ptr;
+   }
+
+   //While block is not free and block size is less than requested size, iterate through list.
+   while (curr && curr->next != roving_ptr && (curr->free != true && curr->size < size)) 
+   {
+      *last = curr; //holds the last block
+      curr  = curr->next;
+
+      //if we reached the end of the list, start at beginning
+      if(curr == NULL)
+      {
+         curr = heapList;
+      }
+   }
+   roving_ptr = curr;
+
 #endif
 
    return curr;
@@ -240,10 +260,9 @@ void *malloc(size_t size)
             don't split the block.
    */
 
-   //next>size > size then check:
+   //if next>size > size then check:
    //if next->size - size > sizeof(_block)+4 then split
    //if next->size - size < sizeof(_block)+4 then dont split
-   
 
    if(next != NULL && next->size > sizeof(struct _block)+4)
    {
@@ -256,7 +275,8 @@ void *malloc(size_t size)
       //set original block free to false
       next->free = false;
       //set original block next to BLOCK_DATA + requested size
-      next->next = BLOCK_DATA(next) + size;
+      unsigned char* new_mem = ((unsigned char*)BLOCK_DATA(next) + size);
+      next->next = (struct _block*)new_mem;
 
       //starting at new split block
       temp = next->next;
@@ -322,17 +342,20 @@ void free(void *ptr)
    {
       if(temp->free == true && temp->next->free == true)
       {
+         //combine sizes
+         temp->size = temp->next->size + sizeof(struct _block);
          temp->next = temp->next->next;
       }
       temp = temp->next;
    }
-
+   
    num_frees++;
 }
 
 void *calloc( size_t nmemb, size_t size )
 {
    // \TODO Implement calloc
+   malloc(0);
    return NULL;
 }
 
