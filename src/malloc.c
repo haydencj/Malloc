@@ -161,6 +161,7 @@ struct _block *findFreeBlock(struct _block **last, size_t size)
       curr = heapList;
       while(curr && !(curr->free && curr->size >= size))
       {
+         //If curr = next fit, then we searched the whole list and didn't find a free block so return NULL.
          if(curr == roving_ptr)
          {
             return NULL;
@@ -236,6 +237,8 @@ struct _block *growHeap(struct _block *last, size_t size)
 void *malloc(size_t size) 
 {
 
+   num_requested += (int)size;
+
    if( atexit_registered == 0 )
    {
       atexit_registered = 1;
@@ -290,6 +293,7 @@ void *malloc(size_t size)
       //set new block free to true
       temp->free = true;
 
+      num_blocks++;
       num_splits++;
    }
 
@@ -298,13 +302,22 @@ void *malloc(size_t size)
    if (next == NULL) 
    {
       next = growHeap(last, size);
-      num_grows++;
+
+      /* Grew heap so increment grows, blocks, and add to max heap*/
+      if(next)
+      {
+         num_grows++;
+         num_blocks++;
+         max_heap+=(int)size;
+      }
    }
 
    else
    {
       num_reuses++;
    }
+
+
 
    /* Could not find free _block or grow heap, so just return NULL */
    if (next == NULL) 
@@ -358,6 +371,9 @@ void free(void *ptr)
          //combine sizes. current block size + next block size + size of block header
          temp->size = temp->size + temp->next->size + sizeof(struct _block);
          temp->next = temp->next->next;
+
+         num_coalesces++;
+         num_blocks--;
       }
       else
       {
@@ -372,6 +388,7 @@ void free(void *ptr)
 void *calloc( size_t nmemb, size_t size )
 {
    // \TODO Implement calloc
+   //use mem set
    malloc(0);
    return NULL;
 }
@@ -379,7 +396,11 @@ void *calloc( size_t nmemb, size_t size )
 void *realloc( void *ptr, size_t size )
 {
    // \TODO Implement realloc
-   return NULL;
+   struct _block *newBlock = malloc(size);
+   memcpy(newBlock, ptr, sizeof(BLOCK_DATA(ptr)));
+   free(ptr);
+
+   return newBlock;
 }
 
 
