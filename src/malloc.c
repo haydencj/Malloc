@@ -106,7 +106,7 @@ struct _block *findFreeBlock(struct _block **last, size_t size)
          continue;
       }
 
-      if( (curr->size - size) < winning_remainder)
+      if((int)(curr->size - size) < winning_remainder)
       {
          winner = curr;
          winning_remainder = curr->size - size;
@@ -121,7 +121,7 @@ struct _block *findFreeBlock(struct _block **last, size_t size)
 // \TODO Put your Worst Fit code in this #ifdef block
 #if defined WORST && WORST == 0
    struct _block *winner = NULL;
-   int winning_remainder = 0; //INT_MIN causes incorrect address
+   int winning_remainder = INT_MIN; //INT_MIN causes incorrect address
 
    while (curr) 
    {
@@ -132,7 +132,7 @@ struct _block *findFreeBlock(struct _block **last, size_t size)
          continue;
       }
 
-      if( (curr->size - size) > winning_remainder)
+      if((int)(curr->size - size) > winning_remainder)
       {
          winner = curr;
          winning_remainder = curr->size - size;
@@ -146,25 +146,28 @@ struct _block *findFreeBlock(struct _block **last, size_t size)
 
 // \TODO Put your Next Fit code in this #ifdef block
 #if defined NEXT && NEXT == 0
-   //if(roving_ptr!=NULL)
-   //{
-   curr = roving_ptr;
-   //}
+   curr = roving_ptr; // We can start our search at last allocation.
 
-   //While block is not free and block size is less than requested size, iterate through list.
-   while (curr && curr->next != roving_ptr && (curr->free != true && curr->size < size)) 
+   //Start searching from last allocation.
+   while(curr && !(curr->free && curr->size >= size))
    {
-      *last = curr; //holds the last block
-      curr  = curr->next;
+         *last = curr; //holds the last block
+         curr  = curr->next;
+   }
 
-      //if we reached the end of the list, start at beginning
-      if(curr == NULL)
+   //If we didn't find anything, start from beginning and loop until last allocation.
+   if(curr == NULL)
+   {
+      curr = heapList;
+      while(curr && !(curr->free && curr->size >= size))
       {
-         curr = heapList;
+         if(curr == roving_ptr)
+         {
+            return NULL;
+         }
+         curr  = curr->next;
       }
    }
-   roving_ptr = curr;
-
 #endif
 
    return curr;
@@ -264,24 +267,24 @@ void *malloc(size_t size)
    //if next->size - size > sizeof(_block)+4 then split
    //if next->size - size < sizeof(_block)+4 then dont split
 
-   if(next != NULL && next->size > sizeof(struct _block)+4)
+   if(next != NULL && (next->size - size) > sizeof(struct _block)+4)
    {
       struct _block *temp = NULL;
       struct _block *original_next = next->next;
       size_t original_size = next->size;
 
-      //subtract requested size from original block
-      next->size = next->size - size;
+      //set free block to have requested size
+      next->size = size;
       //set original block free to false
       next->free = false;
       //set original block next to BLOCK_DATA + requested size
-      unsigned char* new_mem = ((unsigned char*)BLOCK_DATA(next) + size);
+      unsigned char* new_mem = (unsigned char*)(BLOCK_DATA(next) + (int)size);
       next->next = (struct _block*)new_mem;
 
       //starting at new split block
       temp = next->next;
       //new free block size should be original size of block - (requested size + header size)
-      temp->size = original_size - (size + sizeof(struct _block));
+      temp->size = original_size - (int)((int)size + sizeof(struct _block));
       //set new block next = to what the original block next was
       temp->next = original_next;
       //set new block free to true
@@ -295,6 +298,12 @@ void *malloc(size_t size)
    if (next == NULL) 
    {
       next = growHeap(last, size);
+      num_grows++;
+   }
+
+   else
+   {
+      num_reuses++;
    }
 
    /* Could not find free _block or grow heap, so just return NULL */
@@ -306,7 +315,11 @@ void *malloc(size_t size)
    /* Mark _block as in use */
    next->free = false;
 
+   //Last allocation
+   roving_ptr = next;
+
    num_mallocs++;
+   
    /* Return data address associated with _block to the user */
    return BLOCK_DATA(next);
 }
@@ -337,8 +350,8 @@ void free(void *ptr)
             are free then combine them with this block being freed.
    */
    struct _block *temp = heapList;
-
-   while(temp)
+   
+   while(temp && temp->next)
    {
       if(temp->free == true && temp->next->free == true)
       {
@@ -346,7 +359,11 @@ void free(void *ptr)
          temp->size = temp->size + temp->next->size + sizeof(struct _block);
          temp->next = temp->next->next;
       }
-      temp = temp->next;
+      else
+      {
+         temp = temp->next;
+      }
+     
    }
    
    num_frees++;
