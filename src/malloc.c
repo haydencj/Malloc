@@ -388,6 +388,12 @@ void free(void *ptr)
 void *calloc( size_t nmemb, size_t size )
 {
    // \TODO Implement calloc
+
+   /*Reserves storage space for an array of num elements, each of length size bytes. 
+    The calloc() function then gives all the bits of each element an initial value of 0.
+    calloc() returns a pointer to the reserved space. The storage space to which the 
+    returned value points is aligned for storage of any type of object.*/
+
    //use mem set
    malloc(0);
    return NULL;
@@ -396,8 +402,26 @@ void *calloc( size_t nmemb, size_t size )
 void *realloc( void *ptr, size_t size )
 {
    // \TODO Implement realloc
-   struct _block *newBlock = malloc(size);
-   memcpy(newBlock, ptr, sizeof(BLOCK_DATA(ptr)));
+
+   /*If the ptr is NULL, realloc() reserves a block of storage of size bytes. 
+    It does not give all bits of each element an initial value of 0.*/
+   if(ptr == NULL)
+   {
+      return malloc(size);
+   }
+
+
+   /*If size is 0 and ptr is not NULL, the storage
+    pointed to by ptr is freed and NULL is returned.*/
+   else if(ptr != NULL && ((int)size == 0))
+   {
+      free(ptr);
+      return NULL;
+   }
+
+   void *newBlock = malloc(size); //allocate new block of requested size
+
+   memcpy(newBlock, ptr, BLOCK_HEADER(ptr)->size); 
    free(ptr);
 
    return newBlock;
