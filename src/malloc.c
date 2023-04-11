@@ -270,7 +270,7 @@ void *malloc(size_t size)
    //if next->size - size > sizeof(_block)+4 then split
    //if next->size - size < sizeof(_block)+4 then dont split
 
-   if(next != NULL && (next->size - size) > sizeof(struct _block)+4)
+   if(next != NULL && (next->size - size) > (size_t)sizeof(struct _block)+4)
    {
       struct _block *temp = NULL;
       struct _block *original_next = next->next;
@@ -281,13 +281,14 @@ void *malloc(size_t size)
       //set original block free to false
       next->free = false;
       //set original block next to BLOCK_DATA + requested size
-      unsigned char* new_mem = (unsigned char*)(BLOCK_DATA(next) + (int)size);
-      next->next = (struct _block*)new_mem;
+      unsigned char* new_mem = (unsigned char*)BLOCK_DATA(next);
+      new_mem = new_mem + (int)size;
+      next->next = (struct _block*) new_mem;
 
       //starting at new split block
       temp = next->next;
       //new free block size should be original size of block - (requested size + header size)
-      temp->size = original_size - (int)((int)size + sizeof(struct _block));
+      temp->size = original_size - (size + (size_t)sizeof(struct _block));
       //set new block next = to what the original block next was
       temp->next = original_next;
       //set new block free to true
@@ -394,9 +395,11 @@ void *calloc( size_t nmemb, size_t size )
     calloc() returns a pointer to the reserved space. The storage space to which the 
     returned value points is aligned for storage of any type of object.*/
 
-   //use mem set
-   malloc(0);
-   return NULL;
+   
+   struct _block* ptr = malloc(nmemb*size);
+   memset(ptr, 0, nmemb*size);
+
+   return ptr;
 }
 
 void *realloc( void *ptr, size_t size )
