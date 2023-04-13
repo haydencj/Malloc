@@ -162,7 +162,7 @@ struct _block *findFreeBlock(struct _block **last, size_t size)
       while(curr && !(curr->free && curr->size >= size))
       {
          //If curr = next fit, then we searched the whole list and didn't find a free block so return NULL.
-         if(curr == roving_ptr)
+         if(curr->next == roving_ptr)
          {
             return NULL;
          }
